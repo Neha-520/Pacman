@@ -76,11 +76,13 @@ const keys = {
 let lastKey = ''
 
 const map = [
-  ['-', '-', '-', '-', '-', '-'],
-  ['-', ' ', ' ', ' ', ' ', '-'],
-  ['-', ' ', '-', '-', ' ', '-'],
-  ['-', ' ', ' ', ' ', ' ', '-'],
-  ['-', '-', '-', '-', '-', '-']
+  ['-', '-', '-', '-', '-', '-', '-'],
+  ['-', ' ', ' ', ' ', ' ', ' ', '-'],
+  ['-', ' ', '-', ' ', '-', ' ', '-'],
+  ['-', ' ', ' ', ' ', ' ', ' ', '-'],
+  ['-', ' ', '-', ' ', '-', ' ', '-'],
+  ['-', ' ', ' ', ' ', ' ', ' ', '-'],
+  ['-', '-', '-', '-', '-', '-', '-']
 ]
 
 map.forEach((row, i) => {
@@ -100,29 +102,83 @@ map.forEach((row, i) => {
   })
 })
 
+function collisionOfPacmanWithRectangle({
+  circle,
+  rectangle
+}) {
+  return (
+    circle.position.y - circle.radius + circle.velocity.y <= rectangle.position.y + rectangle.height
+    && circle.position.x + circle.radius + circle.velocity.x >= rectangle.position.x
+    && circle.position.y + circle.radius + circle.velocity.y >= rectangle.position.y
+    && circle.position.x - circle.radius + circle.velocity.x <= rectangle.position.x + rectangle.width
+  )
+}
+
 function animate() {
   requestAnimationFrame(animate)
-  context.clearRect(0, 0, canvas.width, canvas.height)
-
-  boundaries.forEach((b) => {
-    b.draw();
-
-    // if(pacman.position.x - pacman.radius )
-  })
-
-  pacman.update();
-  pacman.velocity.y = 0;
-  pacman.velocity.x = 0;
+  context.clearRect(0, 0, canvas.width, canvas.height);
 
   if (keys.ArrowUp.pressed && lastKey === 'ArrowUp') {
-    pacman.velocity.y = -5;
+    for (let i = 0; i < boundaries.length; i++) {
+      const boundary = boundaries[i];
+      if (collisionOfPacmanWithRectangle({
+        circle: {
+          ...pacman, velocity: {
+            x: 0,
+            y: -5
+          }
+        },
+        rectangle: boundary
+      })
+      ) {
+        pacman.velocity.y = 0;
+        break;
+      } else {
+        pacman.velocity.y = -5;
+      }
+    }
   } else if (keys.ArrowDown.pressed && lastKey === 'ArrowDown') {
-    pacman.velocity.y = 5;
+    for (let i = 0; i < boundaries.length; i++) {
+      const boundary = boundaries[i];
+      if (collisionOfPacmanWithRectangle({
+        circle: {
+          ...pacman, velocity: {
+            x: 0,
+            y: 5
+          }
+        },
+        rectangle: boundary
+      })
+      ) {
+        pacman.velocity.y = 0;
+        break;
+      } else {
+        pacman.velocity.y = 5;
+      }
+    }
   } else if (keys.ArrowLeft.pressed && lastKey === 'ArrowLeft') {
     pacman.velocity.x = -5;
   } else if (keys.ArrowRight.pressed && lastKey === 'ArrowRight') {
     pacman.velocity.x = 5;
   }
+
+  boundaries.forEach((b) => {
+    b.draw();
+
+    //Collision detection
+    if (collisionOfPacmanWithRectangle({
+      circle: pacman,
+      rectangle: b
+    })) {
+      pacman.velocity.y = 0;
+      pacman.velocity.x = 0;
+    }
+
+  })
+
+  pacman.update();
+  // pacman.velocity.y = 0;
+  // pacman.velocity.x = 0;
 }
 
 animate();
