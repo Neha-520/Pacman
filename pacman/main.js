@@ -54,6 +54,7 @@ class Ghost {
     this.velocity = velocity
     this.radius = 15
     this.color = color
+    this.prevCollisions = []
   }
 
   draw() {
@@ -478,8 +479,69 @@ function animate() {
 
   pacman.update();
 
-  ghosts.forEach(g => {
-    g.update()
+  ghosts.forEach(ghost => {
+    ghost.update()
+
+    const collisions = []
+    boundaries.forEach(boundary => {
+      if (!collisions.includes('right') && collisionOfPacmanWithRectangle({
+        circle: {
+          ...ghost, velocity: {
+            x: 5,
+            y: 0
+          }
+        },
+        rectangle: boundary
+      })
+      ) {
+        collisions.push('right')
+      }
+
+      if (!collisions.includes('left') && collisionOfPacmanWithRectangle({
+        circle: {
+          ...ghost, velocity: {
+            x: -5,
+            y: 0
+          }
+        },
+        rectangle: boundary
+      })
+      ) {
+        collisions.push('left')
+      }
+      if (!collisions.includes('up') && collisionOfPacmanWithRectangle({
+        circle: {
+          ...ghost, velocity: {
+            x: 0,
+            y: -5
+          }
+        },
+        rectangle: boundary
+      })
+      ) {
+        collisions.push('up')
+      }
+      if (!collisions.includes('bottom') && collisionOfPacmanWithRectangle({
+        circle: {
+          ...ghost, velocity: {
+            x: 0,
+            y: 5
+          }
+        },
+        rectangle: boundary
+      })
+      ) {
+        collisions.push('bottom')
+      }
+    })
+    if (collisions.length > ghost.prevCollisions.length)
+      ghost.prevCollisions = collisions
+
+    if (JSON.stringify(collisions) !== JSON.stringify(ghost.prevCollisions)) {
+      const pathways = ghost.prevCollisions.filter(collision => {
+        return !collisions.includes(collision)
+      })
+    }
   })
 }
 
