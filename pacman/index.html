@@ -7,11 +7,23 @@
     <title>Vite App</title>
   </head>
   <body>
-    <p style="color:wheat;font-family: sans-serif;font-size: 14px;margin-bottom: 6px;">
-      <span>Score: <span id="scoreElement">0</span>
+    <p style="color:white;font-family: sans-serif;font-size: 50px;text-align: center;">
+      <span>Score: <span class="scoreElement">0</span>
     </span>
     </p>
-    <canvas></canvas>
+    <div id="canvas-container">
+
+    <canvas  width="500" height="600" ></canvas>
+    </div>
+    <section id="overlay">
+      <div id="card">
+            <p>Score: <span id="card-score">0</span></p>
+            <button onClick="window.location.reload();">Restart?</button>
+    </div>
+    </section>
+    <!-- <section id = "over">
+      <h1> Winner!! </h1>
+    </section> -->
     <script type="module" src="/main.js"></script>
   </body>
 </html>

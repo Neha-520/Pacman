@@ -1,6 +1,9 @@
 import './style.css'
 const canvas = document.querySelector('canvas');
-const scoreEl = document.querySelector('#scoreElement');
+const scoreEl = document.querySelector('.scoreElement');
+
+const card = document.getElementById("card");
+const cardScore = document.getElementById("card-score");
 
 import soundPellet from './audio/munch.wav'
 import soundPowerUp from './audio/pill.wav'
@@ -10,8 +13,8 @@ import soundGhost from './audio/eat_ghost.wav'
 const context = canvas.getContext('2d');
 
 
-canvas.width = window.innerWidth;
-canvas.height = window.innerHeight;
+// canvas.width = window.innerWidth;
+// canvas.height = window.innerHeight;
 
 class Boundary {
   static width = 40;
@@ -544,6 +547,8 @@ function animate() {
         playAudio(soundGhost)
         ghosts.splice(i, 1);
       } else {
+        card.style.display = "block"
+        cardScore.textContent = score;
         cancelAnimationFrame(animationId);
         playAudio(soundGameOver)
       }
@@ -552,6 +557,12 @@ function animate() {
 
   //win condition 
   if (pellets.length === 0) {
+    card.style.display = "block"
+    card.textContent = "Winner!! "
+    card.style.fontSize = "70px"
+    card.style.textAlign = "center"
+    card.style.color = "DeepPink"
+    card.style.fontFamily = "sans-serif"
     cancelAnimationFrame(animationId)
   }
 
@@ -714,6 +725,10 @@ function animate() {
 }
 
 animate();
+
+// function restartGame(button) {
+//   requestAnimationFrame(animate);
+// }
 
 window.addEventListener('keydown', ({ key }) => {
   switch (key) {
