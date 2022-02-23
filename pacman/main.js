@@ -2,7 +2,13 @@ import './style.css'
 const canvas = document.querySelector('canvas');
 const scoreEl = document.querySelector('#scoreElement');
 
+import soundPellet from './audio/munch.wav'
+import soundPowerUp from './audio/pill.wav'
+import soundGameOver from './audio/death.wav'
+import soundGhost from './audio/eat_ghost.wav'
+
 const context = canvas.getContext('2d');
+
 
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
@@ -31,36 +37,63 @@ class Pacman {
     this.position = position
     this.velocity = velocity
     this.radius = 15
+    this.radians = 0.75
+    this.openRate = 0.12
+    this.rotation = 0
   }
 
   draw() {
+    //wrapped inside save and restore so that global canvas funcn applied only for inside code
+    context.save()
+    //translate canvas center to pacman center
+    context.translate(this.position.x, this.position.y)
+    context.rotate(this.rotation)
+    //canvas centre changed back
+    context.translate(-this.position.x, -this.position.y)
+
     context.beginPath();
-    context.arc(this.position.x, this.position.y, this.radius, 0, Math.PI * 2);
+    context.arc(
+      this.position.x,
+      this.position.y,
+      this.radius,
+      this.radians,
+      Math.PI * 2 - this.radians
+    );
+    context.lineTo(this.position.x, this.position.y) // draws line from 2 ends of arc 
     context.fillStyle = 'yellow'
     context.fill();
     context.closePath();
+    context.restore()
   }
 
   update() {
     this.draw();
     this.position.x += this.velocity.x;
     this.position.y += this.velocity.y;
+
+    if (this.radians < 0 || this.radians > 0.75)
+      this.openRate = - this.openRate
+
+    this.radians += this.openRate
   }
 }
 
 class Ghost {
+  static speed = 2
   constructor({ position, velocity, color = 'red' }) {
     this.position = position
     this.velocity = velocity
-    this.radius = 15
+    this.radius = 14
     this.color = color
     this.prevCollisions = []
+    this.speed = 2
+    this.scared = false
   }
 
   draw() {
     context.beginPath();
     context.arc(this.position.x, this.position.y, this.radius, 0, Math.PI * 2);
-    context.fillStyle = this.color
+    context.fillStyle = this.scared ? 'blue' : this.color
     context.fill();
     context.closePath();
   }
@@ -87,8 +120,29 @@ class Pellet {
   }
 }
 
+class PowerUp {
+  constructor({ position }) {
+    this.position = position
+    this.radius = 8
+  }
+
+  draw() {
+    context.beginPath();
+    context.arc(this.position.x, this.position.y, this.radius, 0, Math.PI * 2);
+    context.fillStyle = 'white'
+    context.fill();
+    context.closePath();
+  }
+}
+
+function playAudio(audio) {
+  const soundEffect = new Audio(audio)
+  soundEffect.play();
+}
+
 const pellets = []
 const boundaries = []
+const powerUps = []
 const ghosts = [
   new Ghost({
     position: {
@@ -96,10 +150,32 @@ const ghosts = [
       y: Boundary.height + Boundary.height / 2
     },
     velocity: {
-      x: 0,
+      x: Ghost.speed,
       y: 0
     }
-  })
+  }),
+  new Ghost({
+    position: {
+      x: Boundary.width * 6 + Boundary.width / 2,
+      y: Boundary.height * 3 + Boundary.height / 2
+    },
+    velocity: {
+      x: Ghost.speed,
+      y: 0
+    },
+    color: 'pink'
+  }),
+  new Ghost({
+    position: {
+      x: Boundary.width * 2 + Boundary.width / 2,
+      y: Boundary.height * 5 + Boundary.height / 2
+    },
+    velocity: {
+      x: Ghost.speed,
+      y: 0
+    },
+    color: 'cyan'
+  }),
 ]
 
 const pacman = new Pacman({
@@ -346,30 +422,39 @@ map.forEach((row, i) => {
           })
         )
         break
+      case 'p':
+        powerUps.push(
+          new PowerUp({
+            position: {
+              x: j * Boundary.width + Boundary.width / 2,
+              y: i * Boundary.height + Boundary.height / 2
+            }
+          })
+        )
+        break
     }
   })
 })
 
-function collisionOfPacmanWithRectangle({
-  circle,
-  rectangle
-}) {
+function collisionOfCircleWithRectangle({ circle, rectangle }) {
+  const padding = Boundary.width / 2 - circle.radius - 1
   return (
-    circle.position.y - circle.radius + circle.velocity.y <= rectangle.position.y + rectangle.height
-    && circle.position.x + circle.radius + circle.velocity.x >= rectangle.position.x
-    && circle.position.y + circle.radius + circle.velocity.y >= rectangle.position.y
-    && circle.position.x - circle.radius + circle.velocity.x <= rectangle.position.x + rectangle.width
+    circle.position.y - circle.radius + circle.velocity.y <= rectangle.position.y + rectangle.height + padding
+    && circle.position.x + circle.radius + circle.velocity.x >= rectangle.position.x - padding
+    && circle.position.y + circle.radius + circle.velocity.y >= rectangle.position.y - padding
+    && circle.position.x - circle.radius + circle.velocity.x <= rectangle.position.x + rectangle.width + padding
   )
 }
 
+let animationId
 function animate() {
-  requestAnimationFrame(animate)
+  animationId = requestAnimationFrame(animate)
   context.clearRect(0, 0, canvas.width, canvas.height);
 
   if (keys.ArrowUp.pressed && lastKey === 'ArrowUp') {
     for (let i = 0; i < boundaries.length; i++) {
       const boundary = boundaries[i];
-      if (collisionOfPacmanWithRectangle({
+      if (collisionOfCircleWithRectangle({
         circle: {
           ...pacman, velocity: {
             x: 0,
@@ -389,7 +474,7 @@ function animate() {
   } else if (keys.ArrowDown.pressed && lastKey === 'ArrowDown') {
     for (let i = 0; i < boundaries.length; i++) {
       const boundary = boundaries[i];
-      if (collisionOfPacmanWithRectangle({
+      if (collisionOfCircleWithRectangle({
         circle: {
           ...pacman, velocity: {
             x: 0,
@@ -408,7 +493,7 @@ function animate() {
   } else if (keys.ArrowLeft.pressed && lastKey === 'ArrowLeft') {
     for (let i = 0; i < boundaries.length; i++) {
       const boundary = boundaries[i];
-      if (collisionOfPacmanWithRectangle({
+      if (collisionOfCircleWithRectangle({
         circle: {
           ...pacman, velocity: {
             x: -5,
@@ -428,7 +513,7 @@ function animate() {
   } else if (keys.ArrowRight.pressed && lastKey === 'ArrowRight') {
     for (let i = 0; i < boundaries.length; i++) {
       const boundary = boundaries[i];
-      if (collisionOfPacmanWithRectangle({
+      if (collisionOfCircleWithRectangle({
         circle: {
           ...pacman, velocity: {
             x: 5,
@@ -447,8 +532,55 @@ function animate() {
     }
   }
 
+  //detect collision b/w ghost & player
+  for (let i = ghosts.length - 1; i >= 0; i--) {
+    const ghost = ghosts[i]
+
+    //ghost touch player
+    if (Math.hypot(ghost.position.x - pacman.position.x, ghost.position.y - pacman.position.y)
+      < ghost.radius + pacman.radius
+    ) {
+      if (ghost.scared) {
+        playAudio(soundGhost)
+        ghosts.splice(i, 1);
+      } else {
+        cancelAnimationFrame(animationId);
+        playAudio(soundGameOver)
+      }
+    }
+  }
+
+  //win condition 
+  if (pellets.length === 0) {
+    cancelAnimationFrame(animationId)
+  }
+
+  //power ups
+  for (let i = powerUps.length - 1; i >= 0; i--) {
+    const powerUp = powerUps[i];
+
+    powerUp.draw();
+
+    //player collide with power up
+    if (Math.hypot(powerUp.position.x - pacman.position.x, powerUp.position.y - pacman.position.y)
+      < powerUp.radius + pacman.radius
+    ) {
+      playAudio(soundPowerUp)
+      powerUps.splice(i, 1);
+
+      //make ghost scared
+      ghosts.forEach((ghost) => {
+        ghost.scared = true
+
+        setTimeout(() => {
+          ghost.scared = false
+        }, 4000)
+      })
+    }
+  }
+
   //touch pellets
-  for (let i = pellets.length - 1; i > 0; i--) {
+  for (let i = pellets.length - 1; i >= 0; i--) {
     const p = pellets[i];
     p.draw();
 
@@ -456,6 +588,7 @@ function animate() {
     if (Math.hypot(p.position.x - pacman.position.x, p.position.y - pacman.position.y)
       < p.radius + pacman.radius
     ) {
+      playAudio(soundPellet)
       pellets.splice(i, 1);
       score += 10;
       scoreEl.innerHTML = score
@@ -467,7 +600,7 @@ function animate() {
     b.draw();
 
     //Collision detection
-    if (collisionOfPacmanWithRectangle({
+    if (collisionOfCircleWithRectangle({
       circle: pacman,
       rectangle: b
     })) {
@@ -484,10 +617,10 @@ function animate() {
 
     const collisions = []
     boundaries.forEach(boundary => {
-      if (!collisions.includes('right') && collisionOfPacmanWithRectangle({
+      if (!collisions.includes('right') && collisionOfCircleWithRectangle({
         circle: {
           ...ghost, velocity: {
-            x: 5,
+            x: ghost.speed,
             y: 0
           }
         },
@@ -497,10 +630,10 @@ function animate() {
         collisions.push('right')
       }
 
-      if (!collisions.includes('left') && collisionOfPacmanWithRectangle({
+      if (!collisions.includes('left') && collisionOfCircleWithRectangle({
         circle: {
           ...ghost, velocity: {
-            x: -5,
+            x: -ghost.speed,
             y: 0
           }
         },
@@ -509,11 +642,11 @@ function animate() {
       ) {
         collisions.push('left')
       }
-      if (!collisions.includes('up') && collisionOfPacmanWithRectangle({
+      if (!collisions.includes('up') && collisionOfCircleWithRectangle({
         circle: {
           ...ghost, velocity: {
             x: 0,
-            y: -5
+            y: -ghost.speed
           }
         },
         rectangle: boundary
@@ -521,11 +654,11 @@ function animate() {
       ) {
         collisions.push('up')
       }
-      if (!collisions.includes('bottom') && collisionOfPacmanWithRectangle({
+      if (!collisions.includes('bottom') && collisionOfCircleWithRectangle({
         circle: {
           ...ghost, velocity: {
             x: 0,
-            y: 5
+            y: ghost.speed
           }
         },
         rectangle: boundary
@@ -534,15 +667,50 @@ function animate() {
         collisions.push('bottom')
       }
     })
+    // console.log(collisions)
     if (collisions.length > ghost.prevCollisions.length)
       ghost.prevCollisions = collisions
 
     if (JSON.stringify(collisions) !== JSON.stringify(ghost.prevCollisions)) {
+
+      if (ghost.velocity.x > 0) ghost.prevCollisions.push('right')
+      else if (ghost.velocity.x < 0) ghost.prevCollisions.push('left')
+      else if (ghost.velocity.y > 0) ghost.prevCollisions.push('bottom')
+      else if (ghost.velocity.y < 0) ghost.prevCollisions.push('up')
+
       const pathways = ghost.prevCollisions.filter(collision => {
         return !collisions.includes(collision)
       })
+
+      const direction = pathways[Math.floor(Math.random() * pathways.length)]
+
+      switch (direction) {
+        case 'bottom':
+          ghost.velocity.y = ghost.speed
+          ghost.velocity.x = 0
+          break;
+        case 'up':
+          ghost.velocity.y = -ghost.speed
+          ghost.velocity.x = 0
+          break;
+        case 'right':
+          ghost.velocity.y = 0
+          ghost.velocity.x = ghost.speed
+          break;
+        case 'left':
+          ghost.velocity.y = 0
+          ghost.velocity.x = -ghost.speed
+          break;
+      }
+
+      ghost.prevCollisions = []
     }
   })
+
+  if (pacman.velocity.x > 0) pacman.rotation = 0
+  else if (pacman.velocity.x < 0) pacman.rotation = Math.PI
+  else if (pacman.velocity.y < 0) pacman.rotation = Math.PI * 1.5
+  else if (pacman.velocity.y > 0) pacman.rotation = Math.PI / 2
 }
 
 animate();
